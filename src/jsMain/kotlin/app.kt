@@ -5,6 +5,8 @@ import dev.fritz2.binding.handledBy
 import dev.fritz2.dom.html.render
 import dev.fritz2.dom.mount
 import dev.fritz2.dom.values
+import kotlinx.browser.window
+import kotlinx.coroutines.await
 import kotlinx.coroutines.flow.map
 
 data class YodaData(
@@ -13,6 +15,10 @@ data class YodaData(
 )
 
 object YodaStore : RootStore<YodaData>(YodaData()) {
+    val translate: Handler<Unit> = handle { yodaData ->
+        yodaData.copy(yodaSpeak = askYoda(yodaData.input))
+    }
+
     val updateInput: Handler<String> = handle { yodaData, newInput ->
         yodaData.copy(input = newInput)
     }
@@ -34,6 +40,7 @@ fun main() {
             }
             button {
                 text("Translate to Yoda!")
+                clicks handledBy YodaStore.translate
             }
             p {
                 YodaStore.data.map { it.yodaSpeak }.bind()
@@ -41,3 +48,20 @@ fun main() {
         }
     }.mount("target")
 }
+
+suspend fun askYoda(input: String) =
+    window.fetch("https://api.funtranslations.com/translate/yoda.json?text=$input")
+        .await()
+        .json()
+        .await()
+        .unsafeCast<YodaResponse>()
+        .contents
+        .translated
+
+data class YodaResponse(
+    val contents: YodaContents
+)
+
+data class YodaContents(
+    val translated: String
+)
